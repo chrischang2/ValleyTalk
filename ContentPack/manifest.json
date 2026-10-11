@@ -6,6 +6,7 @@
     "UniqueID": "dandm1.CPValleyTalk",
     "MinimumApiVersion": "4.1.0",
     "UpdateKeys": [ "Nexus:30319" ],
+    "PermitAiUse": true,
     "ContentPackFor": {
     "UniqueID": "Pathoschild.ContentPatcher"
      }

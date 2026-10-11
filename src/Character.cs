@@ -372,6 +372,19 @@ public class Character
             results = new string[] { "..." };
         }
 
+        // Let other mods rewrite the lines (the dialogue first, then any response options).
+        if (results.Length > 0)
+        {
+            var dialogue = ModInteropManager.Instance.ProcessLine(StardewNpc, results[0]);
+            var responses = results.Skip(1)
+                .Select(r => ModInteropManager.Instance.ProcessLine(StardewNpc, r))
+                .Where(r => !string.IsNullOrWhiteSpace(r))
+                .ToList();
+            if (responses.Count < 2) responses.Clear();
+            results = new[] { string.IsNullOrWhiteSpace(dialogue) ? "..." : dialogue }.Concat(responses).ToArray();
+            ModInteropManager.Instance.RecordGeneratedLine(StardewNpc, results[0]);
+        }
+
         if (!string.IsNullOrWhiteSpace(prompts.GiveGift) && results.Length > 0)
         {
             results[0] += $"[{prompts.GiveGift}]";
@@ -382,6 +395,8 @@ public class Character
 
     public IEnumerable<string> ProcessLines(string resultString,bool relaxedValidation = false)
     {
+        // Small models sometimes put the response options on the dialogue's own line: "...吗？% 是的。% 不是。"
+        resultString = System.Text.RegularExpressions.Regex.Replace(resultString, @"(?<=[。！？.!?…])[ \t]*%[ \t]*", "\n% ");
         var resultLines = resultString.Split('\n').AsEnumerable();
         // Remove any line breaks
         resultLines = resultLines.Select(x => x.Replace("\n", "").Replace("\r", "").Trim());
@@ -546,7 +561,7 @@ public class Character
                 var dollarIndex = element.IndexOf('$');
                 var upToDollar = dollarIndex == -1 ? element : element[..dollarIndex];
                 upToDollar = upToDollar.Trim();
-                if (upToDollar.Length > 0 && !upToDollar.EndsWith(".") && !upToDollar.EndsWith("!") && !upToDollar.EndsWith("?"))
+                if (upToDollar.Length > 0 && !EndsSentence(upToDollar))
                 {
                     elements[i] = upToDollar + "." + ((element.Length > upToDollar.Length && dollarIndex > 0 ) ? element[dollarIndex..] : "");
                 }
@@ -555,6 +570,10 @@ public class Character
         }
         return line;
     }
+
+    /// <summary>True if the text already ends a sentence, including CJK punctuation (so Chinese lines don't get a stray '.').</summary>
+    private static bool EndsSentence(string text) =>
+        text.Length > 0 && ".!?。！？…～~)）」』\"”".IndexOf(text[^1]) >= 0;
 
     private string ResponseLineCleanup(string line)
     {
@@ -582,7 +601,7 @@ public class Character
         }
         line = line.Trim();
         // If the line doesn't end with a sentence end punctuation, add a period
-        if (ModEntry.FixPunctuation && !line.EndsWith(".") && !line.EndsWith("!") && !line.EndsWith("?"))
+        if (ModEntry.FixPunctuation && !EndsSentence(line))
         {
             line += ".";
         }

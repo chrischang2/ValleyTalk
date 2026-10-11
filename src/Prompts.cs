@@ -135,7 +135,17 @@ public class Prompts
         {
             systemPrompt.AppendLine(Util.GetString(Character,"systemPromptTranslation", new { Language = ModEntry.Language }));
         }
+        AppendContributions(systemPrompt, "System");
         return systemPrompt.ToString();
+    }
+
+    /// <summary>Appends text other mods registered for this prompt slot (see IValleyTalkInterface.AddPromptContributor).</summary>
+    private void AppendContributions(StringBuilder prompt, string slot)
+    {
+        foreach (var text in ModInteropManager.Instance.GetPromptContributions(Character.StardewNpc, slot))
+        {
+            prompt.AppendLine(text);
+        }
     }
 
     private string GetGameConstantContext()
@@ -143,7 +153,7 @@ public class Prompts
         var gameConstantPrompt = new StringBuilder();
         gameConstantPrompt.AppendLine(Util.GetString(Character,"gameContext"));
         gameConstantPrompt.AppendLine($"##{Util.GetString(Character,"gameSummaryHeading")}");
-        gameConstantPrompt.AppendLine(_stardewSummary);
+        gameConstantPrompt.AppendLine(ModInteropManager.Instance.GameSummaryOverride ?? _stardewSummary);
         return gameConstantPrompt.ToString();
     }
 
@@ -1029,6 +1039,7 @@ public class Prompts
         {
             commandPrompt.AppendLine(Util.GetString(Character, "instructionsTranslate", new { Language = ModEntry.Language }));
         }
+        AppendContributions(commandPrompt, "End");
         return commandPrompt.ToString();
     }
 
@@ -1058,6 +1069,7 @@ public class Prompts
         {
             instructions.AppendLine(Llm.Instance.ExtraInstructions);
         }
+        AppendContributions(instructions, "Instructions");
         return instructions.ToString();
     }
 

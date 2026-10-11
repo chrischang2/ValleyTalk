@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using StardewValley;
 
 namespace ValleyTalk;
 
@@ -86,5 +88,62 @@ public class ModInteropManager
             return overrides.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Values.AsEnumerable());
         }
         return [];
+    }
+
+    // ------------------------------------------------------------------ callbacks registered by other mods
+
+    private readonly List<(string mod, Func<NPC, string, string> fn)> _promptContributors = new();
+    private readonly List<(string mod, Func<NPC, string, string> fn)> _lineProcessors = new();
+    private readonly List<(string mod, Action<NPC, string> fn)> _playerLineListeners = new();
+
+    internal string GameSummaryOverride { get; set; }
+
+    private readonly Dictionary<string, string> _lastGeneratedLines = new();
+
+    /// <summary>The last line generated for this NPC (after processing), so a later spoken reply can continue from it.</summary>
+    internal string LastGeneratedLine(NPC npc) => npc != null && _lastGeneratedLines.TryGetValue(npc.Name, out var line) ? line : null;
+
+    internal void RecordGeneratedLine(NPC npc, string line)
+    {
+        if (npc != null && !string.IsNullOrWhiteSpace(line)) _lastGeneratedLines[npc.Name] = line;
+    }
+
+    public void AddPromptContributor(string modName, Func<NPC, string, string> contributor) => _promptContributors.Add((modName, contributor));
+
+    public void AddLineProcessor(string modName, Func<NPC, string, string> processor) => _lineProcessors.Add((modName, processor));
+
+    public void AddPlayerLineListener(string modName, Action<NPC, string> listener) => _playerLineListeners.Add((modName, listener));
+
+    /// <summary>Text other mods want appended to the given prompt slot ("System", "Instructions" or "End") for this NPC.</summary>
+    internal IEnumerable<string> GetPromptContributions(NPC npc, string slot)
+    {
+        foreach (var (mod, fn) in _promptContributors)
+        {
+            string text = null;
+            try { text = fn(npc, slot); }
+            catch (Exception ex) { Log.Error($"Prompt contributor from {mod} failed: {ex.Message}"); }
+            if (!string.IsNullOrWhiteSpace(text)) yield return text;
+        }
+    }
+
+    internal string ProcessLine(NPC npc, string line)
+    {
+        foreach (var (mod, fn) in _lineProcessors)
+        {
+            if (string.IsNullOrEmpty(line)) break;
+            try { line = fn(npc, line); }
+            catch (Exception ex) { Log.Error($"Line processor from {mod} failed: {ex.Message}"); }
+        }
+        return line;
+    }
+
+    internal void NotifyPlayerLine(NPC npc, string text)
+    {
+        if (npc == null || string.IsNullOrWhiteSpace(text)) return;
+        foreach (var (mod, fn) in _playerLineListeners)
+        {
+            try { fn(npc, text); }
+            catch (Exception ex) { Log.Error($"Player line listener from {mod} failed: {ex.Message}"); }
+        }
     }
 }

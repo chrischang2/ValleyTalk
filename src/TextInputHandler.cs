@@ -75,6 +75,7 @@ namespace ValleyTalk
             try
             {
                 DialogueBuilder.Instance.AddConversation(_currentNpc, enteredText, isPlayerLine: true);
+                ModInteropManager.Instance.NotifyPlayerLine(_currentNpc, enteredText);
 
                 _currentResponse.Add(new ConversationElement(enteredText, true));
                 _currentNpc.grantConversationFriendship(Game1.player);

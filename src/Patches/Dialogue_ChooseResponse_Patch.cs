@@ -71,6 +71,8 @@ namespace ValleyTalk
             // Set the isLastDialogueInteractive flag to false using reflection
             finishedLastDialogueField.SetValue(__instance, false);
 
+            ModInteropManager.Instance.NotifyPlayerLine(__instance.speaker, farmerReponse);
+
             AsyncBuilder.Instance.RequestNpcResponse(
                 __instance.speaker, 
                 previous.AddItem(new ConversationElement(farmerReponse, true)).ToArray()
